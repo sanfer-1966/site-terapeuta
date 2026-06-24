@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://dodgerblue-anteater-184264.hostingersite.com/sitemap.xml
