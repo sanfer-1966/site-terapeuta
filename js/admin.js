@@ -1,6 +1,17 @@
 const messagesList = document.getElementById('messagesList');
 const messagesCount = document.getElementById('messagesCount');
 const logoutBtn = document.getElementById('logoutBtn');
+const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
+const pagination = document.getElementById('pagination');
+const editModal = document.getElementById('editModal');
+const editForm = document.getElementById('editForm');
+const closeModal = document.getElementById('closeModal');
+const cancelEdit = document.getElementById('cancelEdit');
+
+let currentPage = 1;
+let currentSearch = '';
+let allMessages = [];
 
 async function checkAuth() {
   try {
@@ -18,35 +29,43 @@ async function checkAuth() {
   }
 }
 
-async function loadMessages() {
+async function loadMessages(page = 1, search = '') {
   try {
-    const response = await fetch('/api/mensagens', { credentials: 'same-origin' });
+    const params = new URLSearchParams({ page, limit: 10, search });
+    const response = await fetch(`/api/mensagens?${params}`, { credentials: 'same-origin' });
     
     if (response.status === 401) {
       window.location.href = 'login.html';
       return;
     }
     
-    const messages = await response.json();
+    const data = await response.json();
+    const { messages, pagination: pag } = data;
+    allMessages = messages;
     
     if (messages.length === 0) {
       messagesList.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">&#128231;</div>
-          <p>Nenhuma mensagem recebida ainda.</p>
+          <p>${search ? 'Nenhuma mensagem encontrada.' : 'Nenhuma mensagem recebida ainda.'}</p>
         </div>
       `;
       messagesCount.textContent = '';
+      pagination.innerHTML = '';
       return;
     }
 
-    messagesCount.textContent = `${messages.length} mensagem${messages.length > 1 ? 's' : ''} recebida${messages.length > 1 ? 's' : ''}`;
+    messagesCount.textContent = `${pag.total} mensagem${pag.total > 1 ? 's' : ''} encontrada${pag.total > 1 ? 's' : ''}`;
     
-    messagesList.innerHTML = messages.map(msg => `
-      <article class="message-card">
+    messagesList.innerHTML = messages.map((msg, index) => `
+      <article class="message-card" data-id="${msg.id}" data-index="${index}">
         <div class="message-header">
           <span class="message-name">${escapeHtml(msg.nome)}</span>
-          <span class="message-date">${formatDate(msg.data)}</span>
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <span class="message-date">${formatDate(msg.data)}</span>
+            <button class="btn-edit" data-action="edit" data-index="${index}" title="Editar mensagem">Editar</button>
+            <button class="btn-delete" data-action="delete" data-id="${msg.id}" title="Excluir mensagem">Excluir</button>
+          </div>
         </div>
         <div class="message-contact">
           <span>&#128231; <a href="mailto:${escapeHtml(msg.email)}">${escapeHtml(msg.email)}</a></span>
@@ -55,6 +74,8 @@ async function loadMessages() {
         <div class="message-text">${escapeHtml(msg.mensagem)}</div>
       </article>
     `).join('');
+
+    renderPagination(pag);
   } catch {
     messagesList.innerHTML = `
       <div class="empty-state">
@@ -63,6 +84,139 @@ async function loadMessages() {
     `;
   }
 }
+
+function renderPagination({ page, totalPages }) {
+  if (totalPages <= 1) {
+    pagination.innerHTML = '';
+    return;
+  }
+
+  let html = '';
+  html += `<button ${page === 1 ? 'disabled' : ''} data-page="${page - 1}">&#9664; Anterior</button>`;
+  
+  const start = Math.max(1, page - 2);
+  const end = Math.min(totalPages, page + 2);
+  
+  if (start > 1) {
+    html += `<button data-page="1">1</button>`;
+    if (start > 2) html += `<span class="pagination-info">...</span>`;
+  }
+  
+  for (let i = start; i <= end; i++) {
+    html += `<button class="${i === page ? 'active' : ''}" data-page="${i}">${i}</button>`;
+  }
+  
+  if (end < totalPages) {
+    if (end < totalPages - 1) html += `<span class="pagination-info">...</span>`;
+    html += `<button data-page="${totalPages}">${totalPages}</button>`;
+  }
+  
+  html += `<button ${page === totalPages ? 'disabled' : ''} data-page="${page + 1}">Próxima &#9654;</button>`;
+  
+  pagination.innerHTML = html;
+}
+
+async function deleteMessage(id) {
+  if (!confirm('Tem certeza que deseja excluir esta mensagem?')) return;
+  
+  try {
+    const response = await fetch(`/api/mensagens/${id}`, {
+      method: 'DELETE',
+      credentials: 'same-origin'
+    });
+    
+    if (response.ok) {
+      const card = document.querySelector(`.message-card[data-id="${id}"]`);
+      if (card) {
+        card.style.opacity = '0';
+        card.style.transform = 'translateX(-20px)';
+        card.style.transition = 'all 0.3s ease';
+        setTimeout(() => loadMessages(currentPage, currentSearch), 300);
+      }
+    } else {
+      const result = await response.json();
+      alert(result.error || 'Erro ao excluir mensagem.');
+    }
+  } catch {
+    alert('Erro de conexão ao excluir mensagem.');
+  }
+}
+
+function editMessage(msg) {
+  document.getElementById('editId').value = msg.id;
+  document.getElementById('editNome').value = msg.nome || '';
+  document.getElementById('editEmail').value = msg.email || '';
+  document.getElementById('editTelefone').value = msg.telefone || '';
+  document.getElementById('editMensagem').value = msg.mensagem || '';
+  editModal.classList.add('active');
+}
+
+function closeModalFn() {
+  editModal.classList.remove('active');
+  editForm.reset();
+}
+
+messagesList.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  
+  const action = btn.dataset.action;
+  
+  if (action === 'delete') {
+    const id = parseInt(btn.dataset.id);
+    deleteMessage(id);
+  } else if (action === 'edit') {
+    const index = parseInt(btn.dataset.index);
+    if (allMessages[index]) {
+      editMessage(allMessages[index]);
+    }
+  }
+});
+
+pagination.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-page]');
+  if (!btn || btn.disabled) return;
+  
+  currentPage = parseInt(btn.dataset.page);
+  loadMessages(currentPage, currentSearch);
+});
+
+closeModal?.addEventListener('click', closeModalFn);
+cancelEdit?.addEventListener('click', closeModalFn);
+editModal?.addEventListener('click', (e) => {
+  if (e.target === editModal) closeModalFn();
+});
+
+editForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const id = document.getElementById('editId').value;
+  const data = {
+    nome: document.getElementById('editNome').value,
+    email: document.getElementById('editEmail').value,
+    telefone: document.getElementById('editTelefone').value,
+    mensagem: document.getElementById('editMensagem').value
+  };
+  
+  try {
+    const response = await fetch(`/api/mensagens/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      credentials: 'same-origin'
+    });
+    
+    if (response.ok) {
+      closeModalFn();
+      loadMessages(currentPage, currentSearch);
+    } else {
+      const result = await response.json();
+      alert(result.error || 'Erro ao atualizar mensagem.');
+    }
+  } catch {
+    alert('Erro de conexão ao atualizar mensagem.');
+  }
+});
 
 function escapeHtml(text) {
   if (!text) return '';
@@ -82,6 +236,17 @@ function formatDate(dateStr) {
     minute: '2-digit'
   });
 }
+
+function handleSearch() {
+  currentSearch = searchInput.value.trim();
+  currentPage = 1;
+  loadMessages(currentPage, currentSearch);
+}
+
+searchBtn?.addEventListener('click', handleSearch);
+searchInput?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') handleSearch();
+});
 
 logoutBtn?.addEventListener('click', async () => {
   try {

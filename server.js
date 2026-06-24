@@ -257,17 +257,99 @@ app.get('/api/auth', (req, res) => {
 });
 
 app.get('/api/mensagens', mensagensLimiter, authMiddleware, (req, res) => {
-  const result = db.exec('SELECT * FROM mensagens ORDER BY id DESC');
-  if (result.length === 0) return res.json([]);
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
+  const search = req.query.search || '';
+  const offset = (page - 1) * limit;
 
-  const columns = result[0].columns;
-  const rows = result[0].values.map(row => {
-    const obj = {};
-    columns.forEach((col, i) => obj[col] = row[i]);
-    return obj;
+  let whereClause = '';
+  let params = [];
+
+  if (search) {
+    whereClause = 'WHERE nome LIKE ? OR email LIKE ? OR mensagem LIKE ?';
+    const searchPattern = `%${search}%`;
+    params = [searchPattern, searchPattern, searchPattern];
+  }
+
+  const countResult = db.exec(`SELECT COUNT(*) as total FROM mensagens ${whereClause}`, params);
+  const total = countResult.length > 0 ? countResult[0].values[0][0] : 0;
+  const totalPages = Math.ceil(total / limit);
+
+  const stmt = db.prepare(`SELECT * FROM mensagens ${whereClause} ORDER BY id DESC LIMIT ? OFFSET ?`);
+  stmt.bind([...params, limit, offset]);
+
+  const rows = [];
+  while (stmt.step()) {
+    rows.push(stmt.getAsObject());
+  }
+  stmt.free();
+
+  res.json({
+    messages: rows,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages
+    }
   });
+});
 
-  res.json(rows);
+app.delete('/api/mensagens/:id', mensagensLimiter, authMiddleware, (req, res) => {
+  const { id } = req.params;
+
+  if (!id || isNaN(id)) {
+    return res.status(400).json({ error: 'ID inválido.' });
+  }
+
+  const check = db.prepare('SELECT id FROM mensagens WHERE id = ?');
+  check.bind([parseInt(id)]);
+  const exists = check.step();
+  check.free();
+
+  if (!exists) {
+    return res.status(404).json({ error: 'Mensagem não encontrada.' });
+  }
+
+  db.run('DELETE FROM mensagens WHERE id = ?', [parseInt(id)]);
+  saveDB();
+
+  res.json({ success: true });
+});
+
+app.put('/api/mensagens/:id', mensagensLimiter, authMiddleware, (req, res) => {
+  const { id } = req.params;
+  const { nome, email, telefone, mensagem } = req.body;
+
+  if (!id || isNaN(id)) {
+    return res.status(400).json({ error: 'ID inválido.' });
+  }
+
+  const check = db.prepare('SELECT id FROM mensagens WHERE id = ?');
+  check.bind([parseInt(id)]);
+  const exists = check.step();
+  check.free();
+
+  if (!exists) {
+    return res.status(404).json({ error: 'Mensagem não encontrada.' });
+  }
+
+  if (!nome || !email || !mensagem) {
+    return res.status(400).json({ error: 'Preencha nome, email e mensagem.' });
+  }
+
+  const cleanName = sanitizeString(nome);
+  const cleanEmail = sanitizeString(email);
+  const cleanPhone = telefone ? sanitizeString(telefone) : '';
+  const cleanMessage = sanitizeString(mensagem);
+
+  db.run(
+    'UPDATE mensagens SET nome = ?, email = ?, telefone = ?, mensagem = ? WHERE id = ?',
+    [cleanName, cleanEmail, cleanPhone, cleanMessage, parseInt(id)]
+  );
+  saveDB();
+
+  res.json({ success: true });
 });
 
 initDB().then(() => {
