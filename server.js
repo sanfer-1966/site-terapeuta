@@ -49,8 +49,12 @@ async function initDB() {
     )
   `);
 
-  const existingUser = db.exec(`SELECT id FROM usuarios WHERE username = '${ADMIN_USER}'`);
-  if (existingUser.length === 0 || existingUser[0].values.length === 0) {
+  const stmtCheck = db.prepare('SELECT id FROM usuarios WHERE username = ?');
+  stmtCheck.bind([ADMIN_USER]);
+  const hasUser = stmtCheck.step();
+  stmtCheck.free();
+  
+  if (!hasUser) {
     const hash = bcrypt.hashSync(ADMIN_PASS, 10);
     db.run('INSERT INTO usuarios (username, password_hash) VALUES (?, ?)', [ADMIN_USER, hash]);
   }
@@ -200,13 +204,20 @@ app.post('/api/login', loginLimiter, (req, res) => {
     return res.status(400).json({ error: 'Preencha usuário e senha.' });
   }
 
-  const result = db.exec(`SELECT id, username, password_hash FROM usuarios WHERE username = '${username}'`);
+  const stmt = db.prepare('SELECT id, username, password_hash FROM usuarios WHERE username = ?');
+  stmt.bind([username]);
   
-  if (result.length === 0 || result[0].values.length === 0) {
+  let userRow = null;
+  if (stmt.step()) {
+    userRow = stmt.getAsObject();
+  }
+  stmt.free();
+  
+  if (!userRow) {
     return res.status(401).json({ error: 'Credenciais inválidas.' });
   }
 
-  const [id, user, hash] = result[0].values[0];
+  const { id, username: user, password_hash: hash } = userRow;
   
   if (!bcrypt.compareSync(password, hash)) {
     return res.status(401).json({ error: 'Credenciais inválidas.' });
