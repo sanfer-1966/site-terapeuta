@@ -13,6 +13,11 @@ document.querySelectorAll('.nav-links a').forEach(link => {
   });
 });
 
+const formTimestamp = document.getElementById('formTimestamp');
+if (formTimestamp) {
+  formTimestamp.value = Date.now().toString();
+}
+
 const contactForm = document.getElementById('contactForm');
 
 contactForm?.addEventListener('submit', async (e) => {
@@ -22,11 +27,15 @@ contactForm?.addEventListener('submit', async (e) => {
   btn.textContent = 'Enviando...';
   btn.disabled = true;
 
+  const honeypot = contactForm.querySelector('#website')?.value || '';
+
   const data = {
     name: contactForm.querySelector('#name').value,
     email: contactForm.querySelector('#email').value,
     phone: contactForm.querySelector('#phone').value,
     message: contactForm.querySelector('#message').value,
+    honeypot: honeypot,
+    timestamp: contactForm.querySelector('#formTimestamp')?.value || '',
   };
 
   try {
@@ -39,8 +48,12 @@ contactForm?.addEventListener('submit', async (e) => {
     if (response.ok) {
       btn.textContent = 'Mensagem enviada!';
       contactForm.reset();
+      if (formTimestamp) {
+        formTimestamp.value = Date.now().toString();
+      }
     } else {
-      btn.textContent = 'Erro ao enviar. Tente novamente.';
+      const result = await response.json();
+      btn.textContent = result.error || 'Erro ao enviar. Tente novamente.';
     }
   } catch {
     btn.textContent = 'Erro ao enviar. Tente novamente.';
