@@ -1,0 +1,46 @@
+
+--- Nova Mensagem ---
+Data: 24/06/2026, 13:04:15
+Nome: Marcelino dos Santos Fernandes
+Email: mdmarcelinux@gmail.com
+Telefone: 11976373504
+Mensagem: ffff
+
+--- Nova Mensagem ---
+Data: 24/06/2026, 13:04:40
+Nome: Marcelino dos Santos Fernandes
+Email: smartstorealpha@gmail.com
+Telefone: 11995306591
+Mensagem: obrigado pela atencao
+
+--- Nova Mensagem ---
+ID: 1
+Data: 24/06/2026, 13:07:44
+Nome: Marcelino dos Santos Fernandes
+Email: mdmarcelinux@gmail.com
+Telefone: 11976373504
+Mensagem: muito obrigado
+
+--- Nova Mensagem ---
+ID: 2
+Data: 24/06/2026, 13:08:06
+Nome: Marcelino dos Santos Fernandes
+Email: smartstorealpha@gmail.com
+Telefone: 11995306591
+Mensagem: objetivo
+
+--- Nova Mensagem ---
+ID: 3
+Data: 24/06/2026, 13:12:22
+Nome: Marcelino dos Santos Fernandes
+Email: mdmarcelinux@gmail.com
+Telefone: 11976373504
+Mensagem: excelente
+
+--- Nova Mensagem ---
+ID: 4
+Data: 24/06/2026, 13:22:39
+Nome: Marcelino dos Santos Fernandes
+Email: mdmarcelinux@gmail.com
+Telefone: 11976373504
+Mensagem: teste como servidor
