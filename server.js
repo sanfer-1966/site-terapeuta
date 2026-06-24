@@ -226,9 +226,9 @@ app.post('/api/login', loginLimiter, (req, res) => {
   const token = jwt.sign({ userId: id, username: user }, JWT_SECRET, { expiresIn: '24h' });
 
   res.cookie('token', token, {
-    httpOnly: false,
-    secure: false,
-    sameSite: false,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
     maxAge: 86400000,
     path: '/'
   });
