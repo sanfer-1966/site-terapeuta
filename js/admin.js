@@ -8,6 +8,13 @@ const editModal = document.getElementById('editModal');
 const editForm = document.getElementById('editForm');
 const closeModal = document.getElementById('closeModal');
 const cancelEdit = document.getElementById('cancelEdit');
+const openSettings = document.getElementById('openSettings');
+const settingsModal = document.getElementById('settingsModal');
+const closeSettings = document.getElementById('closeSettings');
+const cancelSettings = document.getElementById('cancelSettings');
+const settingsForm = document.getElementById('settingsForm');
+const settingsError = document.getElementById('settingsError');
+const settingsSuccess = document.getElementById('settingsSuccess');
 
 let currentPage = 1;
 let currentSearch = '';
@@ -40,10 +47,10 @@ async function loadMessages(page = 1, search = '') {
     }
     
     const data = await response.json();
-    const { messages, pagination: pag } = data;
-    allMessages = messages;
+    const { mensagens, pagination: pag } = data;
+    allMessages = mensagens;
     
-    if (messages.length === 0) {
+    if (mensagens.length === 0) {
       messagesList.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">&#128231;</div>
@@ -57,7 +64,7 @@ async function loadMessages(page = 1, search = '') {
 
     messagesCount.textContent = `${pag.total} mensagem${pag.total > 1 ? 's' : ''} encontrada${pag.total > 1 ? 's' : ''}`;
     
-    messagesList.innerHTML = messages.map((msg, index) => `
+    messagesList.innerHTML = mensagens.map((msg, index) => `
       <article class="message-card" data-id="${msg.id}" data-index="${index}">
         <div class="message-header">
           <span class="message-name">${escapeHtml(msg.nome)}</span>
@@ -260,5 +267,102 @@ logoutBtn?.addEventListener('click', async () => {
   const isAuthenticated = await checkAuth();
   if (isAuthenticated) {
     await loadMessages();
+    await loadUserProfile();
   }
 })();
+
+async function loadUserProfile() {
+  try {
+    const response = await fetch('/api/user/profile', { credentials: 'same-origin' });
+    if (response.ok) {
+      const data = await response.json();
+      document.getElementById('currentEmail').value = data.user.email;
+    }
+  } catch {}
+}
+
+function openSettingsModal() {
+  settingsError.style.display = 'none';
+  settingsSuccess.style.display = 'none';
+  settingsForm.reset();
+  loadUserProfile();
+  settingsModal.classList.add('active');
+}
+
+function closeSettingsModal() {
+  settingsModal.classList.remove('active');
+  settingsForm.reset();
+  settingsError.style.display = 'none';
+  settingsSuccess.style.display = 'none';
+}
+
+openSettings?.addEventListener('click', openSettingsModal);
+closeSettings?.addEventListener('click', closeSettingsModal);
+cancelSettings?.addEventListener('click', closeSettingsModal);
+settingsModal?.addEventListener('click', (e) => {
+  if (e.target === settingsModal) closeSettingsModal();
+});
+
+settingsForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  settingsError.style.display = 'none';
+  settingsSuccess.style.display = 'none';
+
+  const currentPassword = document.getElementById('currentPassword').value;
+  const newEmail = document.getElementById('newEmail').value;
+  const newPassword = document.getElementById('newPassword').value;
+  const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+
+  if (!currentPassword) {
+    settingsError.textContent = 'Senha atual é obrigatória.';
+    settingsError.style.display = 'block';
+    return;
+  }
+
+  if (newPassword && newPassword !== confirmNewPassword) {
+    settingsError.textContent = 'As novas senhas não coincidem.';
+    settingsError.style.display = 'block';
+    return;
+  }
+
+  if (newPassword && newPassword.length < 6) {
+    settingsError.textContent = 'A nova senha deve ter pelo menos 6 caracteres.';
+    settingsError.style.display = 'block';
+    return;
+  }
+
+  const btn = settingsForm.querySelector('.btn-save');
+  const originalText = btn.textContent;
+  btn.innerHTML = '<span class="spinner"></span> Salvando...';
+  btn.disabled = true;
+
+  try {
+    const response = await fetch('/api/user/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword, newEmail: newEmail || undefined, newPassword: newPassword || undefined }),
+      credentials: 'same-origin'
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      settingsSuccess.textContent = 'Perfil atualizado com sucesso!';
+      settingsSuccess.style.display = 'block';
+      document.getElementById('currentEmail').value = result.user.email;
+      document.getElementById('newEmail').value = '';
+      document.getElementById('currentPassword').value = '';
+      document.getElementById('newPassword').value = '';
+      document.getElementById('confirmNewPassword').value = '';
+    } else {
+      settingsError.textContent = result.error || 'Erro ao atualizar perfil.';
+      settingsError.style.display = 'block';
+    }
+  } catch {
+    settingsError.textContent = 'Erro de conexão. Tente novamente.';
+    settingsError.style.display = 'block';
+  }
+
+  btn.textContent = originalText;
+  btn.disabled = false;
+});

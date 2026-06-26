@@ -286,21 +286,21 @@ Configurar variáveis de ambiente necessárias.
 Testar todas as funcionalidades implementadas.
 
 ### Sub-tarefas
-- [ ] Testar POST /api/send com dados válidos
-- [ ] Testar POST /api/send com honeypot preenchido
-- [ ] Testar POST /api/send com timestamp inválido
-- [ ] Testar POST /api/login com credenciais corretas
-- [ ] Testar POST /api/login com credenciais incorretas
-- [ ] Testar rate limit em POST /api/send
-- [ ] Testar GET /api/mensagens sem token
-- [ ] Testar GET /api/mensagens com token
-- [ ] Testar POST /api/logout
-- [ ] Verificar headers de segurança
+- [x] Testar POST /api/send com dados válidos
+- [x] Testar POST /api/send com honeypot preenchido
+- [x] Testar POST /api/send com timestamp inválido
+- [x] Testar POST /api/login com credenciais corretas
+- [x] Testar POST /api/login com credenciais incorretas
+- [x] Testar rate limit em POST /api/send
+- [x] Testar GET /api/mensagens sem token
+- [x] Testar GET /api/mensagens com token
+- [x] Testar POST /api/logout
+- [x] Verificar headers de segurança
 
 ### Critérios de Aceite
-- [ ] Todos os testes passam
-- [ ] Nenhum erro no console
-- [ ] Funciona em browser real
+- [x] Todos os testes passam
+- [x] Nenhum erro no console
+- [x] Funciona em browser real
 
 ---
 

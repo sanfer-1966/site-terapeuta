@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -8,12 +9,12 @@ const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DB_FILE = 'mensagens.db';
-const ADMIN_USER = process.env.ADMIN_USER || 'admin';
-const ADMIN_PASS = process.env.ADMIN_PASS || 'admin123';
 const JWT_SECRET = process.env.JWT_SECRET || 'sua_chave_secreta_mude_em_producao';
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
 
@@ -48,16 +49,6 @@ async function initDB() {
       created_at TEXT DEFAULT (datetime('now','localtime'))
     )
   `);
-
-  const stmtCheck = db.prepare('SELECT id FROM usuarios WHERE username = ?');
-  stmtCheck.bind([ADMIN_USER]);
-  const hasUser = stmtCheck.step();
-  stmtCheck.free();
-  
-  if (!hasUser) {
-    const hash = bcrypt.hashSync(ADMIN_PASS, 10);
-    db.run('INSERT INTO usuarios (username, password_hash) VALUES (?, ?)', [ADMIN_USER, hash]);
-  }
 
   saveDB();
 }
@@ -176,6 +167,30 @@ const mensagensLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  message: { error: 'Muitas requisições. Tente novamente em 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  message: { error: 'Muitas tentativas. Aguarde 1 hora.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const profileLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: 'Muitas tentativas. Tente novamente em 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.post('/api/send', sendLimiter, (req, res) => {
   const validation = validateInput(req.body);
   
@@ -228,7 +243,7 @@ app.post('/api/login', loginLimiter, (req, res) => {
   res.cookie('token', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: 'strict',
     maxAge: 86400000,
     path: '/'
   });
@@ -285,7 +300,7 @@ app.get('/api/mensagens', mensagensLimiter, authMiddleware, (req, res) => {
   stmt.free();
 
   res.json({
-    messages: rows,
+    mensagens: rows,
     pagination: {
       page,
       limit,
@@ -350,6 +365,273 @@ app.put('/api/mensagens/:id', mensagensLimiter, authMiddleware, (req, res) => {
   saveDB();
 
   res.json({ success: true });
+});
+
+const resetTokens = new Map();
+
+function cleanupExpiredTokens() {
+  const now = Date.now();
+  for (const [token, data] of resetTokens) {
+    if (data.expires < now) {
+      resetTokens.delete(token);
+    }
+  }
+}
+
+setInterval(cleanupExpiredTokens, 15 * 60 * 1000);
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.sendgrid.net',
+  port: parseInt(process.env.SMTP_PORT) || 587,
+  secure: process.env.SMTP_SECURE === 'true',
+  auth: {
+    user: 'apikey',
+    pass: process.env.SENDGRID_API_KEY
+  }
+});
+
+app.post('/api/forgot-password', forgotPasswordLimiter, (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Digite seu email.' });
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Email inválido.' });
+  }
+
+  let stmt = db.prepare('SELECT id, username FROM usuarios WHERE username = ?');
+  stmt.bind([email]);
+  let user = null;
+  if (stmt.step()) {
+    user = stmt.getAsObject();
+  }
+  stmt.free();
+
+  let userId;
+  let isNewUser = false;
+
+  if (!user) {
+    const tempPassword = crypto.randomBytes(16).toString('hex');
+    const hash = bcrypt.hashSync(tempPassword, 10);
+    db.run('INSERT INTO usuarios (username, password_hash) VALUES (?, ?)', [email, hash]);
+    saveDB();
+
+    const idResult = db.exec('SELECT last_insert_rowid() as id');
+    userId = idResult[0].values[0][0];
+    isNewUser = true;
+  } else {
+    userId = user.id;
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const expires = Date.now() + 3600000;
+  resetTokens.set(token, { userId, expires });
+
+  const resetUrl = `${ALLOWED_ORIGIN}/reset-password.html?token=${token}`;
+
+  const mailOptions = {
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    to: email,
+    subject: isNewUser 
+      ? 'Conta Criada - Defina sua Senha - Dra. Ana Souza'
+      : 'Redefinição de Senha - Dra. Ana Souza',
+    html: `
+      <h2>${isNewUser ? 'Conta Criada com Sucesso!' : 'Redefinição de Senha'}</h2>
+      <p>Olá,</p>
+      ${isNewUser 
+        ? '<p>Uma conta foi criada para este email. Clique no link abaixo para definir sua senha:</p>'
+        : '<p>Você solicitou a redefinição da sua senha.</p>'}
+      <p><a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#6baa8e;color:white;text-decoration:none;border-radius:8px;">${isNewUser ? 'Definir Minha Senha' : 'Redefinir Senha'}</a></p>
+      <p>Este link expira em 1 hora.</p>
+      ${isNewUser ? '<p>Crie uma senha forte para proteger sua conta.</p>' : ''}
+      <p>Atenciosamente,<br>Dra. Ana Souza</p>
+    `
+  };
+
+  transporter.sendMail(mailOptions)
+    .then(() => {
+      res.json({ success: true, message: 'Email enviado com sucesso!' });
+    })
+    .catch((err) => {
+      console.error('Erro ao enviar email:', err);
+      if (process.env.NODE_ENV !== 'production') {
+        res.json({ success: true, message: 'Email enviado (modo desenvolvimento)' });
+      } else {
+        res.status(500).json({ error: 'Erro ao enviar email. Tente novamente.' });
+      }
+    });
+});
+
+app.get('/api/verify-token', (req, res) => {
+  const { token } = req.query;
+
+  if (!token) {
+    return res.json({ valid: false });
+  }
+
+  const resetData = resetTokens.get(token);
+
+  if (!resetData || resetData.expires < Date.now()) {
+    resetTokens.delete(token);
+    return res.json({ valid: false });
+  }
+
+  res.json({ valid: true });
+});
+
+app.post('/api/reset-password', (req, res) => {
+  const { token, password } = req.body;
+
+  if (!token || !password) {
+    return res.status(400).json({ error: 'Token e senha são obrigatórios.' });
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
+  }
+
+  const resetData = resetTokens.get(token);
+
+  if (!resetData || resetData.expires < Date.now()) {
+    resetTokens.delete(token);
+    return res.status(400).json({ error: 'Token inválido ou expirado.' });
+  }
+
+  const hash = bcrypt.hashSync(password, 10);
+  db.run('UPDATE usuarios SET password_hash = ? WHERE id = ?', [hash, resetData.userId]);
+  saveDB();
+
+  resetTokens.delete(token);
+
+  res.json({ success: true, message: 'Senha redefinida com sucesso!' });
+});
+
+app.get('/api/check-registration', (req, res) => {
+  const result = db.exec('SELECT COUNT(*) as count FROM usuarios');
+  const count = result.length > 0 ? result[0].values[0][0] : 0;
+  res.json({ available: count === 0 });
+});
+
+app.post('/api/register', registerLimiter, (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Preencha email e senha.' });
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) {
+    return res.status(400).json({ error: 'Email inválido.' });
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
+  }
+
+  const check = db.prepare('SELECT COUNT(*) as count FROM usuarios');
+  check.step();
+  const count = check.getAsObject().count;
+  check.free();
+
+  if (count > 0) {
+    return res.status(403).json({ error: 'Já existe um administrador cadastrado.' });
+  }
+
+  const hash = bcrypt.hashSync(password, 10);
+  db.run('INSERT INTO usuarios (username, password_hash) VALUES (?, ?)', [username, hash]);
+  saveDB();
+
+  res.json({ success: true, message: 'Administrador cadastrado com sucesso!' });
+});
+
+app.get('/api/user/profile', authMiddleware, (req, res) => {
+  const stmt = db.prepare('SELECT id, username FROM usuarios WHERE id = ?');
+  stmt.bind([req.user.userId]);
+  let user = null;
+  if (stmt.step()) {
+    user = stmt.getAsObject();
+  }
+  stmt.free();
+
+  if (!user) {
+    return res.status(404).json({ error: 'Usuário não encontrado.' });
+  }
+
+  res.json({ user: { id: user.id, email: user.username } });
+});
+
+app.put('/api/user/profile', profileLimiter, authMiddleware, (req, res) => {
+  const { currentPassword, newEmail, newPassword } = req.body;
+
+  if (!currentPassword) {
+    return res.status(400).json({ error: 'Senha atual é obrigatória.' });
+  }
+
+  const stmt = db.prepare('SELECT id, username, password_hash FROM usuarios WHERE id = ?');
+  stmt.bind([req.user.userId]);
+  let user = null;
+  if (stmt.step()) {
+    user = stmt.getAsObject();
+  }
+  stmt.free();
+
+  if (!user) {
+    return res.status(404).json({ error: 'Usuário não encontrado.' });
+  }
+
+  if (!bcrypt.compareSync(currentPassword, user.password_hash)) {
+    return res.status(401).json({ error: 'Senha atual incorreta.' });
+  }
+
+  if (newEmail) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+      return res.status(400).json({ error: 'Email inválido.' });
+    }
+
+    const existing = db.prepare('SELECT id FROM usuarios WHERE username = ? AND id != ?');
+    existing.bind([newEmail, req.user.userId]);
+    const exists = existing.step();
+    existing.free();
+
+    if (exists) {
+      return res.status(400).json({ error: 'Este email já está em uso.' });
+    }
+
+    db.run('UPDATE usuarios SET username = ? WHERE id = ?', [newEmail, req.user.userId]);
+  }
+
+  if (newPassword) {
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
+    }
+    const hash = bcrypt.hashSync(newPassword, 10);
+    db.run('UPDATE usuarios SET password_hash = ? WHERE id = ?', [hash, req.user.userId]);
+  }
+
+  saveDB();
+
+  const updatedUser = db.prepare('SELECT username FROM usuarios WHERE id = ?');
+  updatedUser.bind([req.user.userId]);
+  updatedUser.step();
+  const userData = updatedUser.getAsObject();
+  updatedUser.free();
+
+  const token = jwt.sign({ userId: req.user.userId, username: userData.username }, JWT_SECRET, { expiresIn: '24h' });
+
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 86400000,
+    path: '/'
+  });
+
+  res.json({ success: true, message: 'Perfil atualizado com sucesso!', user: { email: userData.username } });
+});
+
+app.use((req, res) => {
+  res.status(404).sendFile(path.join(__dirname, '404.html'));
 });
 
 initDB().then(() => {

@@ -592,3 +592,73 @@ h3 { font-size: clamp(1.1rem, 2vw, 1.35rem); }
     grid-column: span 1;
   }
 }
+
+/* Spinner */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+  vertical-align: middle;
+  margin-right: 0.5rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Button States */
+.btn.loading {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.btn.success {
+  background: #28a745;
+  border-color: #28a745;
+}
+
+.btn.error {
+  background: #dc3545;
+  border-color: #dc3545;
+}
+
+/* Scroll Animations */
+.animate-on-scroll {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.animate-on-scroll.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Card Hover Enhanced */
+.card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Smooth Focus */
+input:focus, textarea:focus {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Hero Animation */
+.hero-shape {
+  animation: morph 8s ease-in-out infinite, float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-15px); }
+}

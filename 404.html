@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Página Não Encontrada - Dra. Ana Souza</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .error-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .error-container {
+      max-width: 500px;
+    }
+
+    .error-code {
+      font-size: clamp(6rem, 15vw, 10rem);
+      font-weight: 700;
+      color: var(--primary);
+      line-height: 1;
+      margin-bottom: 1rem;
+      opacity: 0.8;
+    }
+
+    .error-title {
+      color: var(--secondary);
+      font-size: clamp(1.5rem, 4vw, 2rem);
+      margin-bottom: 1rem;
+    }
+
+    .error-text {
+      color: var(--text-light);
+      font-size: 1.125rem;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+
+    .error-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-home {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.875rem 2rem;
+      background: var(--primary);
+      color: var(--white);
+      border-radius: var(--radius);
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .btn-home:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .btn-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.875rem 2rem;
+      background: transparent;
+      color: var(--text-light);
+      border: 1px solid var(--gray-light);
+      border-radius: var(--radius);
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .btn-back:hover {
+      background: var(--gray-light);
+      color: var(--text);
+    }
+
+    .error-icon {
+      font-size: 4rem;
+      margin-bottom: 1.5rem;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+  <main class="error-page">
+    <div class="error-container">
+      <div class="error-icon">&#128269;</div>
+      <div class="error-code">404</div>
+      <h1 class="error-title">Página Não Encontrada</h1>
+      <p class="error-text">Desculpe, a página que você procura não existe ou foi movida.</p>
+      <div class="error-actions">
+        <a href="index.html" class="btn-home">&#8592; Página Inicial</a>
+        <button onclick="history.back()" class="btn-back">&#8592; Voltar</button>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

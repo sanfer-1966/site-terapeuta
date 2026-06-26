@@ -11,3 +11,4 @@ cookies*.txt
 .github/skills/
 .opencode/commands/
 .opencode/skills/
+.env

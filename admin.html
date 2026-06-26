@@ -402,6 +402,7 @@
     <div class="admin-container">
       <div class="admin-header">
         <h1 class="admin-title">Mensagens Recebidas</h1>
+        <button class="btn-edit" id="openSettings" style="padding:0.5rem 1rem;font-size:0.875rem;">&#9881; Configurações da Conta</button>
       </div>
 
       <div class="messages-count" id="messagesCount"></div>
@@ -446,6 +447,43 @@
         <div class="modal-actions">
           <button type="button" class="btn-cancel" id="cancelEdit">Cancelar</button>
           <button type="submit" class="btn-save">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title">Configurações da Conta</h2>
+        <button class="modal-close" id="closeSettings">&times;</button>
+      </div>
+      <form class="modal-form" id="settingsForm">
+        <div class="form-group">
+          <label for="currentEmail">E-mail atual</label>
+          <input type="email" id="currentEmail" disabled style="background:#f5f5f5;">
+        </div>
+        <div class="form-group">
+          <label for="newEmail">Novo e-mail</label>
+          <input type="email" id="newEmail" placeholder="Deixe em branco para manter">
+        </div>
+        <div class="form-group">
+          <label for="currentPassword">Senha atual</label>
+          <input type="password" id="currentPassword" required>
+        </div>
+        <div class="form-group">
+          <label for="newPassword">Nova senha</label>
+          <input type="password" id="newPassword" placeholder="Deixe em branco para manter" minlength="6">
+        </div>
+        <div class="form-group">
+          <label for="confirmNewPassword">Confirmar nova senha</label>
+          <input type="password" id="confirmNewPassword" placeholder="Confirme a nova senha" minlength="6">
+        </div>
+        <div id="settingsError" style="color:#dc3545;font-size:0.85rem;margin-bottom:1rem;display:none;"></div>
+        <div id="settingsSuccess" style="color:#28a745;font-size:0.85rem;margin-bottom:1rem;display:none;"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn-cancel" id="cancelSettings">Cancelar</button>
+          <button type="submit" class="btn-save">Salvar Alterações</button>
         </div>
       </form>
     </div>

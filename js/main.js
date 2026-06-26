@@ -24,8 +24,10 @@ contactForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = contactForm.querySelector('.btn');
   const originalText = btn.textContent;
-  btn.textContent = 'Enviando...';
+  
+  btn.innerHTML = '<span class="spinner"></span> Enviando...';
   btn.disabled = true;
+  btn.classList.add('loading');
 
   const honeypot = contactForm.querySelector('#website')?.value || '';
 
@@ -46,21 +48,46 @@ contactForm?.addEventListener('submit', async (e) => {
     });
 
     if (response.ok) {
-      btn.textContent = 'Mensagem enviada!';
+      btn.innerHTML = '&#10003; Mensagem enviada!';
+      btn.classList.remove('loading');
+      btn.classList.add('success');
       contactForm.reset();
       if (formTimestamp) {
         formTimestamp.value = Date.now().toString();
       }
     } else {
       const result = await response.json();
-      btn.textContent = result.error || 'Erro ao enviar. Tente novamente.';
+      btn.innerHTML = '&#10007; ' + (result.error || 'Erro ao enviar.');
+      btn.classList.remove('loading');
+      btn.classList.add('error');
     }
   } catch {
-    btn.textContent = 'Erro ao enviar. Tente novamente.';
+    btn.innerHTML = '&#10007; Erro de conexão.';
+    btn.classList.remove('loading');
+    btn.classList.add('error');
   }
 
   setTimeout(() => {
     btn.textContent = originalText;
     btn.disabled = false;
+    btn.classList.remove('success', 'error');
   }, 3000);
+});
+
+const observerOptions = {
+  threshold: 0.1,
+  rootMargin: '0px 0px -50px 0px'
+};
+
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, observerOptions);
+
+document.querySelectorAll('.card, .about-content, .hero-content, .contact-grid').forEach(el => {
+  el.classList.add('animate-on-scroll');
+  observer.observe(el);
 });
